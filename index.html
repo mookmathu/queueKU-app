@@ -350,7 +350,7 @@ function CreateGroup({ clientId, onBack, onCreated }) {
       <p className="qb-sub">กรอกรายละเอียดงาน ระบบจะสร้างรหัสเข้ากลุ่มให้อัตโนมัติ</p>
       <div className="qb-card">
         <div className="qb-field">
-          <label className="qb-label">ชื่องาน / โปรเจค</label>
+          <label className="qb-label">ชื่องาน / โปรเจค <span style={{ color: "var(--brick)" }}>*</span></label>
           <input className="qb-input" placeholder="เช่น พรีเซนต์วิชา Special Problem" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="qb-field">
