@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ระบบจองคิวพรีเซนต์</title>
+
+<!-- React -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<!-- In-browser JSX compiler (fine for a small app, no build step needed) -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Supabase client -->
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<!-- Icons: lightweight inline SVGs are used instead of a library to keep this a single file -->
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+:root{
+  --ink:#16233F; --ink-soft:#3B4A6B;
+  --paper:#F6F1E4; --paper-2:#EEE6D2; --paper-3:#E7DDC3;
+  --amber:#E2A73B; --amber-dark:#B9822A;
+  --sage:#6E8B6B; --sage-dark:#4E6B4C;
+  --brick:#B4472F; --line:#CBBF9E;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; min-height:100%; background:var(--paper); }
+body{
+  font-family:'Sarabun', sans-serif; color:var(--ink);
+  background:
+    radial-gradient(circle at 1px 1px, rgba(22,35,63,0.07) 1px, transparent 0) 0 0/16px 16px,
+    var(--paper);
+}
+#root{ min-height:100vh; padding:28px 18px 60px; }
+.qb-display{ font-family:'Chakra Petch', sans-serif; }
+.qb-mono{ font-family:'IBM Plex Mono', monospace; }
+.qb-wrap{ max-width:720px; margin:0 auto; }
+
+.qb-eyebrow{ font-family:'Chakra Petch', sans-serif; font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink-soft); font-weight:600; display:flex; align-items:center; gap:8px; }
+.qb-eyebrow::before{ content:''; width:18px; height:2px; background:var(--amber); display:inline-block; }
+.qb-h1{ font-family:'Chakra Petch', sans-serif; font-weight:700; font-size:34px; line-height:1.15; margin:10px 0 6px; letter-spacing:-0.01em; }
+.qb-sub{ color:var(--ink-soft); font-size:15px; margin:0 0 22px; line-height:1.6; }
+
+.qb-btn{ font-family:'Chakra Petch', sans-serif; font-weight:600; font-size:14.5px; letter-spacing:.02em;
+  padding:13px 20px; border-radius:8px; border:2px solid var(--ink); background:var(--ink); color:var(--paper);
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  transition:transform .12s ease, box-shadow .12s ease; box-shadow:3px 3px 0 rgba(22,35,63,0.18); }
+.qb-btn:hover{ transform:translate(-1px,-1px); box-shadow:4px 4px 0 rgba(22,35,63,0.22); }
+.qb-btn:active{ transform:translate(1px,1px); box-shadow:1px 1px 0 rgba(22,35,63,0.22); }
+.qb-btn:disabled{ opacity:.42; cursor:not-allowed; transform:none; box-shadow:none; }
+.qb-btn.qb-ghost{ background:transparent; color:var(--ink); }
+.qb-btn.qb-amber{ background:var(--amber); border-color:var(--amber-dark); color:var(--ink); }
+.qb-btn.qb-brick{ background:var(--brick); border-color:#8f371f; color:var(--paper); }
+.qb-btn.qb-sm{ padding:8px 13px; font-size:13px; border-radius:6px; box-shadow:2px 2px 0 rgba(22,35,63,0.18); }
+.qb-btn.qb-full{ width:100%; }
+
+.qb-card{ background:var(--paper-2); border:1.5px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+.qb-field{ margin-bottom:16px; }
+.qb-label{ display:block; font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:12.5px;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:7px; }
+.qb-input{ width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:8px; background:var(--paper);
+  font-family:'Sarabun',sans-serif; font-size:15px; color:var(--ink); outline:none; transition:border-color .12s; }
+.qb-input:focus{ border-color:var(--ink); }
+.qb-hint{ font-size:12.5px; color:var(--ink-soft); margin-top:6px; }
+.qb-row{ display:flex; gap:12px; }
+.qb-row > *{ flex:1; }
+
+.qb-ticket{ position:relative; background:var(--paper); border:1.5px dashed var(--line); border-radius:10px;
+  padding:16px; display:flex; align-items:center; gap:14px; margin-bottom:10px; }
+.qb-ticket.now{ border-style:solid; border-color:var(--amber-dark); background:#FBF0D9; box-shadow:0 0 0 3px rgba(226,167,59,0.28); }
+.qb-ticket.done{ opacity:.55; }
+.qb-ticket-num{ font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:22px; background:var(--ink);
+  color:var(--paper); min-width:52px; height:52px; display:flex; align-items:center; justify-content:center;
+  border-radius:8px; flex-shrink:0; }
+.qb-ticket.now .qb-ticket-num{ background:var(--amber-dark); }
+.qb-ticket.done .qb-ticket-num{ background:var(--sage-dark); }
+.qb-ticket-name{ font-weight:600; font-size:15.5px; }
+.qb-ticket-meta{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+.qb-badge{ font-family:'Chakra Petch',sans-serif; font-size:11px; font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; padding:4px 9px; border-radius:20px; white-space:nowrap; }
+.qb-badge.wait{ background:var(--paper-3); color:var(--ink-soft); }
+.qb-badge.now{ background:var(--amber); color:var(--ink); }
+.qb-badge.done{ background:var(--sage); color:#fff; }
+
+.qb-nowserving{ background:var(--ink); color:var(--paper); border-radius:14px; padding:26px 22px; text-align:center;
+  margin-bottom:18px; position:relative; overflow:hidden; }
+.qb-nowserving::before{ content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(135deg, rgba(226,167,59,0.06) 0 10px, transparent 10px 20px); }
+.qb-nowserving-label{ font-family:'Chakra Petch',sans-serif; font-size:12px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--amber); font-weight:700; position:relative; }
+.qb-nowserving-num{ font-family:'IBM Plex Mono',monospace; font-size:58px; font-weight:700; line-height:1.1; margin:6px 0; position:relative; }
+.qb-nowserving-name{ font-size:18px; font-weight:600; position:relative; }
+.qb-nowserving-next{ font-size:13px; color:#C9D2E6; margin-top:10px; position:relative; }
+
+.qb-code-box{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--ink);
+  color:var(--paper); border-radius:10px; padding:16px 18px; margin-bottom:16px; }
+.qb-code{ font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:700; letter-spacing:.12em; }
+
+.qb-countdown{ text-align:center; padding:26px 18px; background:var(--ink); color:var(--paper); border-radius:14px; margin-bottom:18px; }
+.qb-countdown-num{ font-family:'IBM Plex Mono',monospace; font-size:40px; font-weight:700; letter-spacing:.04em; }
+
+.qb-toplink{ display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft); font-size:13.5px; font-weight:600;
+  cursor:pointer; background:none; border:none; padding:0; margin-bottom:18px; font-family:'Sarabun',sans-serif; }
+.qb-toplink:hover{ color:var(--ink); }
+.qb-divider{ height:1px; background:var(--line); margin:20px 0; }
+
+.qb-grouplist-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 16px;
+  background:var(--paper); border:1.5px solid var(--line); border-radius:9px; margin-bottom:8px; cursor:pointer;
+  transition:border-color .12s; }
+.qb-grouplist-item:hover{ border-color:var(--ink); }
+
+.qb-toast{ position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:50; background:var(--ink);
+  color:var(--paper); padding:12px 20px; border-radius:9px; font-size:14px; font-weight:600;
+  box-shadow:0 6px 18px rgba(0,0,0,.25); max-width:90%; text-align:center; }
+
+.qb-empty{ text-align:center; padding:30px 10px; color:var(--ink-soft); font-size:14px; }
+
+.qb-kiosk{ position:fixed; inset:0; background:var(--ink); color:var(--paper); z-index:100; display:flex;
+  flex-direction:column; align-items:center; justify-content:center; gap:18px; font-family:'Chakra Petch',sans-serif;
+  text-align:center; padding:20px; }
+.qb-kiosk-num{ font-family:'IBM Plex Mono',monospace; font-size:min(22vw,180px); font-weight:700; line-height:1; }
+.qb-kiosk-label{ font-size:16px; letter-spacing:.3em; text-transform:uppercase; color:var(--amber); }
+.qb-kiosk-name{ font-size:28px; font-weight:600; }
+.qb-kiosk-close{ position:absolute; top:20px; right:20px; }
+.qb-admin-actions{ display:flex; flex-wrap:wrap; gap:8px; }
+.qb-setup{ max-width:560px; margin:60px auto; }
+@media (max-width:480px){ .qb-h1{ font-size:27px; } .qb-nowserving-num{ font-size:44px; } .qb-row{ flex-direction:column; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/plain" id="app-source">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+/* =========================================================
+   !!! CONFIG — put your Supabase project values here !!!
+   Project Settings -> API -> Project URL / anon public key
+========================================================= */
+const SUPABASE_URL = "https://tgfiglpbbetllwddwqml.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_u7m1Zm6tAwoUhBWz0zUjBw_NfbGPJko";
+
+const sb = (SUPABASE_URL.startsWith("http"))
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+/* ---------------- utilities ---------------- */
+const ID_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+const genCode = (len = 6) => Array.from({ length: len }, () => ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)]).join("");
+const genId = () => (crypto.randomUUID ? crypto.randomUUID().slice(0, 10) : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+
+const fmtCountdown = (ms) => {
+  if (ms <= 0) return "00:00:00";
+  const s = Math.floor(ms / 1000);
+  const h = String(Math.floor(s / 3600)).padStart(2, "0");
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const sec = String(s % 60).padStart(2, "0");
+  return `${h}:${m}:${sec}`;
+};
+const fmtEta = (mins) => {
+  if (mins <= 0) return "ถึงคิวคุณแล้ว";
+  if (mins < 60) return `~${mins} นาที`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return `~${h} ชม. ${m} นาที`;
+};
+const fmtTime = (iso) => !iso ? "" : new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+
+function beep(freq = 880, dur = 0.22) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = freq; o.type = "sine";
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.16, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    o.start(); o.stop(ctx.currentTime + dur + 0.02);
+  } catch (e) {}
+}
+
+/* ---------------- local persistence (this device only) ---------------- */
+function getClientId() {
+  let cid = localStorage.getItem("qb_clientId");
+  if (!cid) { cid = genId(); localStorage.setItem("qb_clientId", cid); }
+  return cid;
+}
+function getMyGroups() {
+  try { return JSON.parse(localStorage.getItem("qb_myGroups") || "[]"); } catch (e) { return []; }
+}
+function setMyGroupsLS(list) { localStorage.setItem("qb_myGroups", JSON.stringify(list)); }
+
+/* ---------------- domain helpers ---------------- */
+function isBookingOpen(group, bookings) {
+  if (!group) return false;
+  if (group.closed) return false;
+  if (group.open_time && Date.now() < new Date(group.open_time).getTime()) return false;
+  if (group.max_members && bookings.length >= group.max_members) return false;
+  return true;
+}
+function closedReason(group, bookings) {
+  if (!group) return "";
+  if (group.open_time && Date.now() < new Date(group.open_time).getTime()) return "รอเปิดจอง";
+  if (group.closed) return "ปิดรับจองแล้ว";
+  if (group.max_members && bookings.length >= group.max_members) return "คิวเต็มแล้ว";
+  return "";
+}
+function peopleAheadOf(bookings, myIndex) {
+  let count = 0;
+  for (let i = 0; i < myIndex; i++) if (bookings[i].status !== "done") count++;
+  return count;
+}
+const DEFAULT_EST_MIN = 5;
+function avgDurationInfo(bookings) {
+  const done = bookings.filter((b) => b.status === "done" && typeof b.duration_min === "number");
+  if (done.length === 0) return { value: DEFAULT_EST_MIN, isEstimate: true, sampleSize: 0 };
+  const avg = done.reduce((s, b) => s + b.duration_min, 0) / done.length;
+  return { value: Math.max(1, Math.round(avg * 10) / 10), isEstimate: false, sampleSize: done.length };
+}
+
+/* =========================================================
+   App
+========================================================= */
+function App() {
+  const [screen, setScreen] = useState("landing");
+  const [clientId] = useState(getClientId());
+  const [myGroups, setMyGroups] = useState(getMyGroups());
+  const [activeGroupId, setActiveGroupId] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 2600); }, []);
+
+  const saveMyGroups = useCallback((list) => { setMyGroups(list); setMyGroupsLS(list); }, []);
+  const addMyGroup = useCallback((entry) => {
+    const next = [entry, ...myGroups.filter((g) => g.id !== entry.id)].slice(0, 30);
+    saveMyGroups(next);
+  }, [myGroups, saveMyGroups]);
+  const removeMyGroup = useCallback((id) => saveMyGroups(myGroups.filter((g) => g.id !== id)), [myGroups, saveMyGroups]);
+
+  const openGroup = (id) => { setActiveGroupId(id); setScreen("group"); };
+
+  if (!sb) {
+    return (
+      <div className="qb-wrap qb-setup">
+        <div className="qb-eyebrow">ตั้งค่าก่อนใช้งาน</div>
+        <h1 className="qb-h1">ยังไม่ได้ใส่ค่า Supabase</h1>
+        <p className="qb-sub">
+          เปิดไฟล์นี้ด้วยโปรแกรมแก้ไขข้อความ แล้วแก้บรรทัด <code>SUPABASE_URL</code> และ{" "}
+          <code>SUPABASE_ANON_KEY</code> ใกล้ด้านบนของสคริปต์ ให้เป็นค่าจากโปรเจกต์ Supabase ของคุณ
+          (Project Settings → API) จากนั้นเซฟและเปิดหน้านี้ใหม่
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="qb-wrap">
+      {toast && <div className="qb-toast">{toast}</div>}
+      {screen === "landing" && (
+        <Landing myGroups={myGroups} onCreate={() => setScreen("create")} onJoin={() => setScreen("join")}
+          onOpen={openGroup} onRemove={removeMyGroup} />
+      )}
+      {screen === "create" && (
+        <CreateGroup clientId={clientId} onBack={() => setScreen("landing")}
+          onCreated={(group) => { addMyGroup({ id: group.id, name: group.name, role: "admin" }); openGroup(group.id); showToast("สร้างกลุ่มคิวเรียบร้อย"); }} />
+      )}
+      {screen === "join" && (
+        <JoinGroup onBack={() => setScreen("landing")}
+          onJoined={(group) => { addMyGroup({ id: group.id, name: group.name, role: "participant" }); openGroup(group.id); }} />
+      )}
+      {screen === "group" && activeGroupId && (
+        <GroupScreen groupId={activeGroupId} clientId={clientId} onBack={() => setScreen("landing")}
+          onToast={showToast}
+          onGroupDeleted={() => { removeMyGroup(activeGroupId); setScreen("landing"); showToast("ลบกลุ่มคิวแล้ว"); }} />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Landing ---------------- */
+function Landing({ myGroups, onCreate, onJoin, onOpen, onRemove }) {
+  return (
+    <div>
+      <div className="qb-eyebrow">ระบบจองคิว</div>
+      <h1 className="qb-h1">จองคิวพรีเซนต์ &amp; งานต่าง ๆ</h1>
+      <p className="qb-sub">สร้างกลุ่มคิวสำหรับแต่ละงาน แชร์รหัสให้เพื่อนกดจอง แล้วรันคิวแบบเรียลไทม์ได้เลย</p>
+      <div className="qb-row" style={{ marginBottom: 22 }}>
+        <button className="qb-btn qb-full" onClick={onCreate}>＋ สร้างกลุ่มคิวใหม่</button>
+        <button className="qb-btn qb-ghost qb-full" onClick={onJoin}>เข้าร่วมด้วยรหัส</button>
+      </div>
+      {myGroups.length > 0 && (
+        <React.Fragment>
+          <div className="qb-eyebrow" style={{ marginBottom: 10 }}>กลุ่มของฉัน</div>
+          {myGroups.map((g) => (
+            <div className="qb-grouplist-item" key={g.id} onClick={() => onOpen(g.id)}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>{g.role === "admin" ? "ผู้ดูแลกลุ่ม" : "ผู้เข้าร่วม"}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <button className="qb-btn qb-ghost qb-sm" onClick={(e) => { e.stopPropagation(); onRemove(g.id); }}>✕</button>
+                <span style={{ color: "var(--ink-soft)" }}>›</span>
+              </div>
+            </div>
+          ))}
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Create Group ---------------- */
+function CreateGroup({ clientId, onBack, onCreated }) {
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [maxMembers, setMaxMembers] = useState("");
+  const [openTime, setOpenTime] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    setSaving(true); setError("");
+    const id = genId();
+    let code = genCode(6);
+    const group = {
+      id, name: name.trim(), description: desc.trim(),
+      max_members: maxMembers ? parseInt(maxMembers, 10) : null,
+      open_time: openTime ? new Date(openTime).toISOString() : null,
+      closed: false, access_code: code, creator_client_id: clientId,
+    };
+    let { error: insertErr } = await sb.from("groups").insert(group);
+    // retry once on the unlikely access_code collision
+    if (insertErr && insertErr.message && insertErr.message.includes("access_code")) {
+      group.access_code = genCode(6);
+      ({ error: insertErr } = await sb.from("groups").insert(group));
+    }
+    setSaving(false);
+    if (insertErr) { setError("สร้างกลุ่มไม่สำเร็จ: " + insertErr.message); return; }
+    onCreated(group);
+  };
+
+  return (
+    <div>
+      <button className="qb-toplink" onClick={onBack}>← กลับ</button>
+      <div className="qb-eyebrow">กลุ่มคิวใหม่</div>
+      <h1 className="qb-h1">ตั้งค่ากลุ่มคิว</h1>
+      <p className="qb-sub">กรอกรายละเอียดงาน ระบบจะสร้างรหัสเข้ากลุ่มให้อัตโนมัติ</p>
+      <div className="qb-card">
+        <div className="qb-field">
+          <label className="qb-label">ชื่องาน / โปรเจค</label>
+          <input className="qb-input" placeholder="เช่น พรีเซนต์วิชา Special Problem" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="qb-field">
+          <label className="qb-label">รายละเอียด (ไม่บังคับ)</label>
+          <input className="qb-input" placeholder="ห้อง, วันที่, หมายเหตุ" value={desc} onChange={(e) => setDesc(e.target.value)} />
+        </div>
+        <div className="qb-field">
+          <label className="qb-label">จำนวนคิวสูงสุด</label>
+          <input className="qb-input" type="number" min="1" placeholder="ไม่จำกัด" value={maxMembers} onChange={(e) => setMaxMembers(e.target.value)} />
+        </div>
+        <div className="qb-field">
+          <label className="qb-label">เปิดให้จองเมื่อ (ไม่บังคับ)</label>
+          <input className="qb-input" type="datetime-local" value={openTime} onChange={(e) => setOpenTime(e.target.value)} />
+          <div className="qb-hint">ถ้าไม่ตั้ง จะเปิดให้จองได้ทันที</div>
+        </div>
+      </div>
+      <div className="qb-hint" style={{ marginBottom: 16 }}>
+        ไม่ต้องกรอกเวลาเฉลี่ยต่อคิว — ระบบจะคำนวณให้เองจากเวลาจริงที่แต่ละคนกด "เริ่มพรีเซนต์" ถึง "เสร็จแล้ว"
+      </div>
+      {error && <div style={{ color: "var(--brick)", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{error}</div>}
+      <button className="qb-btn qb-full" disabled={!name.trim() || saving} onClick={submit}>
+        {saving ? "กำลังสร้าง..." : "สร้างกลุ่มคิว"}
+      </button>
+    </div>
+  );
+}
+
+/* ---------------- Join Group ---------------- */
+function JoinGroup({ onBack, onJoined }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const lookupAndJoin = async () => {
+    setError("");
+    const clean = code.trim().toUpperCase();
+    if (!clean) return;
+    setBusy(true);
+    const { data, error: err } = await sb.from("groups").select("*").eq("access_code", clean).maybeSingle();
+    setBusy(false);
+    if (err || !data) { setError("ไม่พบกลุ่มคิวจากรหัสนี้ ลองตรวจสอบอีกครั้ง"); return; }
+    onJoined(data);
+  };
+
+  return (
+    <div>
+      <button className="qb-toplink" onClick={onBack}>← กลับ</button>
+      <div className="qb-eyebrow">เข้าร่วมกลุ่มคิว</div>
+      <h1 className="qb-h1">กรอกรหัสเข้ากลุ่ม</h1>
+      <div className="qb-card">
+        <div className="qb-field" style={{ marginBottom: 8 }}>
+          <label className="qb-label">รหัสกลุ่ม 6 หลัก</label>
+          <input className="qb-input qb-mono" style={{ fontSize: 20, letterSpacing: "0.14em", textTransform: "uppercase" }}
+            placeholder="XXXXXX" maxLength={6} value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && lookupAndJoin()} autoFocus />
+        </div>
+        {error && <div style={{ color: "var(--brick)", fontSize: 13, fontWeight: 600 }}>{error}</div>}
+      </div>
+      <button className="qb-btn qb-full" disabled={busy || !code.trim()} onClick={lookupAndJoin}>
+        {busy ? "กำลังค้นหา..." : "เข้าร่วมกลุ่ม"}
+      </button>
+    </div>
+  );
+}
+
+/* ---------------- Group Screen ---------------- */
+function GroupScreen({ groupId, clientId, onBack, onToast, onGroupDeleted }) {
+  const [group, setGroup] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [nameDraft, setNameDraft] = useState("");
+  const [now, setNow] = useState(Date.now());
+  const [copied, setCopied] = useState(false);
+  const [kiosk, setKiosk] = useState(false);
+  const [notifOn, setNotifOn] = useState(false);
+  const notifiedRef = useRef({ near: false, turn: false });
+
+  const isAdmin = group && group.creator_client_id === clientId;
+
+  const loadGroup = useCallback(async () => {
+    const { data } = await sb.from("groups").select("*").eq("id", groupId).maybeSingle();
+    if (data) setGroup(data);
+  }, [groupId]);
+  const loadBookings = useCallback(async () => {
+    const { data } = await sb.from("bookings").select("*").eq("group_id", groupId).order("id", { ascending: true });
+    if (data) setBookings(data);
+  }, [groupId]);
+
+  useEffect(() => { loadGroup(); loadBookings(); }, [loadGroup, loadBookings]);
+
+  // realtime subscription instead of polling
+  useEffect(() => {
+    const channel = sb.channel("room:" + groupId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings", filter: `group_id=eq.${groupId}` }, loadBookings)
+      .on("postgres_changes", { event: "*", schema: "public", table: "groups", filter: `id=eq.${groupId}` }, loadGroup)
+      .subscribe();
+    // fallback light poll in case realtime isn't enabled on the tables
+    const poll = setInterval(() => { loadGroup(); loadBookings(); }, 8000);
+    return () => { sb.removeChannel(channel); clearInterval(poll); };
+  }, [groupId, loadGroup, loadBookings]);
+
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+
+  const myBooking = useMemo(() => bookings.find((b) => b.client_id === clientId) || null, [bookings, clientId]);
+  const myIndex = myBooking ? bookings.indexOf(myBooking) : -1;
+  const myPeopleAhead = myIndex >= 0 ? peopleAheadOf(bookings, myIndex) : null;
+  const avgInfo = useMemo(() => avgDurationInfo(bookings), [bookings]);
+  const myEta = myPeopleAhead != null ? Math.round(myPeopleAhead * avgInfo.value) : null;
+
+  const presenting = bookings.find((b) => b.status === "presenting");
+  const nextUp = bookings.find((b) => b.status === "waiting");
+  const canStartNext = !presenting && nextUp;
+
+  useEffect(() => {
+    if (!notifOn || !myBooking || myBooking.status === "done") return;
+    if (myPeopleAhead === 0 && !notifiedRef.current.turn) {
+      notifiedRef.current.turn = true; beep(1046, 0.35);
+      if ("Notification" in window && Notification.permission === "granted") new Notification("ถึงคิวของคุณแล้ว!", { body: group?.name || "" });
+      onToast("ถึงคิวของคุณแล้ว! 🎉");
+    } else if (myPeopleAhead === 1 && !notifiedRef.current.near) {
+      notifiedRef.current.near = true; beep(660, 0.2);
+      if ("Notification" in window && Notification.permission === "granted") new Notification("ใกล้ถึงคิวของคุณแล้ว", { body: "อีก 1 คิวจะถึงคุณ" });
+      onToast("ใกล้ถึงคิวของคุณแล้ว — เตรียมตัวได้เลย");
+    }
+  }, [myPeopleAhead, notifOn, myBooking, group, onToast]);
+
+  const enableNotif = async () => {
+    if ("Notification" in window && Notification.permission !== "granted") {
+      const perm = await Notification.requestPermission();
+      setNotifOn(perm === "granted");
+    } else setNotifOn(true);
+    beep(880, 0.15);
+  };
+
+  const bookingOpen = isBookingOpen(group, bookings);
+  const reason = closedReason(group, bookings);
+
+  const doBook = async () => {
+    if (!nameDraft.trim() || !group) return;
+    const { error } = await sb.from("bookings").insert({ group_id: groupId, client_id: clientId, name: nameDraft.trim(), status: "waiting" });
+    if (error) { onToast("จองไม่สำเร็จ: " + error.message); return; }
+    onToast("จองคิวสำเร็จ");
+    loadBookings();
+  };
+  const markStart = async (targetClientId) => {
+    await sb.from("bookings").update({ status: "presenting", started_at: new Date().toISOString() }).eq("group_id", groupId).eq("client_id", targetClientId);
+    onToast("เริ่มพรีเซนต์แล้ว — กดปุ่มอีกครั้งตอนเสร็จ");
+    loadBookings();
+  };
+  const markDone = async (targetClientId) => {
+    const b = bookings.find((x) => x.client_id === targetClientId);
+    const startedMs = b && b.started_at ? new Date(b.started_at).getTime() : null;
+    const doneAt = new Date();
+    const durationMin = startedMs ? Math.max(1, Math.round((doneAt.getTime() - startedMs) / 60000)) : null;
+    await sb.from("bookings").update({ status: "done", done_at: doneAt.toISOString(), duration_min: durationMin }).eq("group_id", groupId).eq("client_id", targetClientId);
+    notifiedRef.current = { near: false, turn: false };
+    onToast("พรีเซนต์เสร็จแล้ว — แจ้งเตือนคิวถัดไป");
+    loadBookings();
+  };
+  const removeBooking = async (targetClientId) => {
+    await sb.from("bookings").delete().eq("group_id", groupId).eq("client_id", targetClientId);
+    onToast("นำคิวออกแล้ว");
+    loadBookings();
+  };
+  const toggleClosed = async () => {
+    await sb.from("groups").update({ closed: !group.closed }).eq("id", groupId);
+    loadGroup();
+    onToast(!group.closed ? "ปิดรับจองแล้ว" : "เปิดรับจองแล้ว");
+  };
+  const resetQueue = async () => {
+    if (!confirm("รีเซ็ตคิวทั้งหมด? รายชื่อที่จองไว้จะถูกลบ")) return;
+    await sb.from("bookings").delete().eq("group_id", groupId);
+    onToast("รีเซ็ตคิวแล้ว");
+    loadBookings();
+  };
+  const deleteGroup = async () => {
+    if (!confirm("ลบกลุ่มคิวนี้ถาวร?")) return;
+    await sb.from("groups").delete().eq("id", groupId);
+    onGroupDeleted();
+  };
+  const copyCode = async () => {
+    try { await navigator.clipboard.writeText(group.access_code); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+    catch (e) { onToast(group.access_code); }
+  };
+
+  if (!group) return <div className="qb-empty">กำลังโหลดกลุ่มคิว...</div>;
+
+  const countdownMs = group.open_time ? new Date(group.open_time).getTime() - now : 0;
+  const waitingCount = bookings.filter((b) => b.status !== "done").length;
+
+  return (
+    <div>
+      <button className="qb-toplink" onClick={onBack}>← กลุ่มของฉัน</button>
+      <div className="qb-eyebrow">{isAdmin ? "ผู้ดูแลกลุ่ม" : "ผู้เข้าร่วม"}</div>
+      <h1 className="qb-h1">{group.name}</h1>
+      {group.description && <p className="qb-sub">{group.description}</p>}
+
+      {isAdmin && (
+        <div className="qb-code-box">
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: ".12em", color: "#C9D2E6", fontFamily: "'Chakra Petch',sans-serif" }}>รหัสเข้ากลุ่ม</div>
+            <div className="qb-code">{group.access_code}</div>
+          </div>
+          <button className="qb-btn qb-amber qb-sm" onClick={copyCode}>{copied ? "คัดลอกแล้ว" : "คัดลอก"}</button>
+        </div>
+      )}
+
+      {group.open_time && countdownMs > 0 && (
+        <div className="qb-countdown">
+          <div style={{ fontSize: 12, letterSpacing: ".2em", color: "var(--amber)", fontFamily: "'Chakra Petch',sans-serif", marginBottom: 6 }}>เปิดจองใน</div>
+          <div className="qb-countdown-num qb-mono">{fmtCountdown(countdownMs)}</div>
+          <div style={{ fontSize: 12.5, color: "#C9D2E6", marginTop: 6 }}>เปิดจองเวลา {fmtTime(group.open_time)}</div>
+        </div>
+      )}
+
+      <div className="qb-nowserving">
+        <div className="qb-nowserving-label">กำลังพรีเซนต์</div>
+        {presenting ? (
+          <React.Fragment>
+            <div className="qb-nowserving-num">#{bookings.indexOf(presenting) + 1}</div>
+            <div className="qb-nowserving-name">{presenting.name}</div>
+          </React.Fragment>
+        ) : <div className="qb-nowserving-name" style={{ marginTop: 10 }}>ยังไม่เริ่ม</div>}
+        {nextUp && <div className="qb-nowserving-next">คิวถัดไป: {nextUp.name}</div>}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14, position: "relative", flexWrap: "wrap" }}>
+          {canStartNext && (isAdmin || nextUp.client_id === clientId) && (
+            <button className="qb-btn qb-amber qb-sm" onClick={() => markStart(nextUp.client_id)}>เริ่มพรีเซนต์: {nextUp.name}</button>
+          )}
+          <button className="qb-btn qb-ghost qb-sm" style={{ borderColor: "rgba(246,241,228,0.3)", color: "var(--paper)" }} onClick={() => setKiosk(true)}>โหมดจอแสดงผล</button>
+        </div>
+      </div>
+
+      {myBooking ? (
+        <div className={`qb-ticket ${myBooking.status === "presenting" ? "now" : ""} ${myBooking.status === "done" ? "done" : ""}`}>
+          <div className="qb-ticket-num">#{myIndex + 1}</div>
+          <div style={{ flex: 1 }}>
+            <div className="qb-ticket-name">{myBooking.name} (คุณ)</div>
+            <div className="qb-ticket-meta">
+              {myBooking.status === "done" ? `พรีเซนต์เสร็จแล้ว${myBooking.duration_min ? ` · ใช้เวลา ${myBooking.duration_min} นาที` : ""}`
+                : myBooking.status === "presenting" ? 'ถึงคิวของคุณแล้ว! กด "เสร็จแล้ว" หลังพรีเซนต์จบ'
+                : (myBooking === nextUp && !presenting) ? "ถึงคิวของคุณแล้ว! กดเริ่มพรีเซนต์ได้เลย"
+                : `รออีก ${myPeopleAhead} คิว · ${fmtEta(myEta)}${avgInfo.isEstimate ? " (ประมาณการ)" : ""}`}
+            </div>
+          </div>
+          {myBooking.status === "presenting" && <button className="qb-btn qb-amber qb-sm" onClick={() => markDone(clientId)}>เสร็จแล้ว</button>}
+          {myBooking.status === "waiting" && myBooking === nextUp && !presenting && <button className="qb-btn qb-amber qb-sm" onClick={() => markStart(clientId)}>เริ่มพรีเซนต์</button>}
+        </div>
+      ) : (
+        <div className="qb-card">
+          {!bookingOpen ? (
+            <div className="qb-empty">🔒<br />{reason || "ยังไม่เปิดให้จอง"}</div>
+          ) : (
+            <React.Fragment>
+              <div className="qb-field" style={{ marginBottom: 10 }}>
+                <label className="qb-label">ชื่อของคุณ เพื่อจองคิว</label>
+                <input className="qb-input" placeholder="กรอกชื่อ" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doBook()} />
+              </div>
+              <button className="qb-btn qb-full" disabled={!nameDraft.trim()} onClick={doBook}>จองคิว (จะได้คิวที่ #{bookings.length + 1})</button>
+            </React.Fragment>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "18px 0 4px" }}>
+        <div className="qb-eyebrow" style={{ marginBottom: 0 }}>รายการคิว ({waitingCount} รอ / {bookings.length} ทั้งหมด{group.max_members ? ` / ${group.max_members}` : ""})</div>
+        <button className="qb-btn qb-ghost qb-sm" onClick={notifOn ? () => setNotifOn(false) : enableNotif}>{notifOn ? "แจ้งเตือนเปิด" : "เปิดแจ้งเตือน"}</button>
+      </div>
+      <div className="qb-hint" style={{ marginBottom: 12 }}>
+        {avgInfo.isEstimate ? `ยังไม่มีข้อมูลจริง — ใช้ค่าประมาณ ${avgInfo.value} นาที/คิว จนกว่าจะมีคนกดเสร็จคนแรก`
+          : `เวลาเฉลี่ยต่อคิวจากข้อมูลจริง: ${avgInfo.value} นาที (จาก ${avgInfo.sampleSize} คิวที่เสร็จแล้ว)`}
+      </div>
+
+      {bookings.length === 0 ? <div className="qb-empty">ยังไม่มีใครจองคิว</div> : bookings.map((b, i) => (
+        <div key={b.client_id} className={`qb-ticket ${b.status === "presenting" ? "now" : ""} ${b.status === "done" ? "done" : ""}`}>
+          <div className="qb-ticket-num">#{i + 1}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="qb-ticket-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}{b.client_id === clientId ? " (คุณ)" : ""}</div>
+            <div className="qb-ticket-meta">
+              {b.status === "waiting" && (b === nextUp && !presenting ? "พร้อมเริ่มพรีเซนต์" : `รออีก ${peopleAheadOf(bookings, i)} คิว · ${fmtEta(Math.round(peopleAheadOf(bookings, i) * avgInfo.value))}${avgInfo.isEstimate ? " (ประมาณการ)" : ""}`)}
+              {b.status === "presenting" && "กำลังพรีเซนต์"}
+              {b.status === "done" && `เสร็จแล้ว${b.duration_min ? ` · ใช้เวลา ${b.duration_min} นาที` : ""}`}
+            </div>
+          </div>
+          <span className={`qb-badge ${b.status === "waiting" ? "wait" : b.status === "presenting" ? "now" : "done"}`}>
+            {b.status === "waiting" ? "รอคิว" : b.status === "presenting" ? "กำลังขึ้น" : "เสร็จแล้ว"}
+          </span>
+          {isAdmin && b.status === "waiting" && b === nextUp && !presenting && <button className="qb-btn qb-amber qb-sm" onClick={() => markStart(b.client_id)}>เริ่ม</button>}
+          {isAdmin && b.status === "presenting" && <button className="qb-btn qb-amber qb-sm" onClick={() => markDone(b.client_id)}>เสร็จ</button>}
+          {isAdmin && b.status !== "done" && <button className="qb-btn qb-ghost qb-sm" title="นำออก (ไม่มา)" onClick={() => removeBooking(b.client_id)}>✕</button>}
+        </div>
+      ))}
+
+      {isAdmin && (
+        <React.Fragment>
+          <div className="qb-divider" />
+          <div className="qb-eyebrow" style={{ marginBottom: 12 }}>เครื่องมือผู้ดูแล</div>
+          <div className="qb-admin-actions">
+            <button className="qb-btn qb-sm" onClick={toggleClosed}>{group.closed ? "เปิดรับจอง" : "ปิดรับจอง"}</button>
+            <button className="qb-btn qb-ghost qb-sm" onClick={resetQueue}>รีเซ็ตคิว</button>
+            <button className="qb-btn qb-brick qb-sm" onClick={deleteGroup}>ลบกลุ่มคิว</button>
+          </div>
+        </React.Fragment>
+      )}
+
+      {kiosk && (
+        <div className="qb-kiosk">
+          <button className="qb-btn qb-ghost qb-sm qb-kiosk-close" style={{ color: "var(--paper)", borderColor: "rgba(246,241,228,0.3)" }} onClick={() => setKiosk(false)}>ปิด</button>
+          <div className="qb-kiosk-label">{group.name} · กำลังพรีเซนต์</div>
+          <div className="qb-kiosk-num qb-mono">{presenting ? `#${bookings.indexOf(presenting) + 1}` : "—"}</div>
+          <div className="qb-kiosk-name">{presenting ? presenting.name : "ยังไม่เริ่ม"}</div>
+          {nextUp && <div style={{ fontSize: 16, color: "#C9D2E6", marginTop: 4 }}>คิวถัดไป: {nextUp.name}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+
+<script>
+  // แปลง JSX เองแบบควบคุมได้เต็มที่ (บังคับ runtime แบบ classic = ใช้ React.createElement)
+  // เพื่อไม่ให้เอาต์พุตมีคำสั่ง import หลุดออกมา ซึ่งใช้กับ <script> ธรรมดาไม่ได้
+  var source = document.getElementById("app-source").textContent;
+  var compiled = Babel.transform(source, {
+    presets: [["react", { runtime: "classic" }]],
+    filename: "app.jsx",
+  }).code;
+  var script = document.createElement("script");
+  script.textContent = compiled;
+  document.body.appendChild(script);
+</script>
+</body>
+</html>
